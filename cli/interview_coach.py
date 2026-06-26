@@ -19,7 +19,7 @@ from typing import Optional
 from pathlib import Path
 
 try:
-    import anthropic
+    from openai import OpenAI
     from rich.console import Console
     from rich.panel import Panel
     from rich.text import Text
@@ -34,7 +34,7 @@ except ImportError:
     import subprocess
     subprocess.check_call([sys.executable, "-m", "pip", "install",
                            "anthropic", "rich", "--quiet"])
-    import anthropic
+    from openai import OpenAI
     from rich.console import Console
     from rich.panel import Panel
     from rich.text import Text
@@ -170,27 +170,29 @@ class InterviewSession:
 # ─── AI Engine ────────────────────────────────────────────────────────────────
 
 class InterviewEngine:
-    """Core AI engine that drives the mock interview using Claude."""
+    """Core AI engine that drives the mock interview using OpenAI."""
 
     def __init__(self, api_key: str):
-        self.client = anthropic.Anthropic(api_key=api_key)
-        self.model = "claude-opus-4-6"
+        self.client = OpenAI(api_key=api_key)
+        self.model = "gpt-4o"
 
     def _call_claude(self, system_prompt: str, user_prompt: str) -> str:
-        """Make a synchronous call to Claude with spinner feedback."""
+        """Make a synchronous call to OpenAI with spinner feedback."""
         with Progress(
             SpinnerColumn(spinner_name="dots"),
-            TextColumn("[bold cyan]Claude is thinking...[/bold cyan]"),
+            TextColumn("[bold cyan]GPT is thinking...[/bold cyan]"),
             transient=True,
         ) as progress:
             progress.add_task("thinking", total=None)
-            response = self.client.messages.create(
+            response = self.client.chat.completions.create(
                 model=self.model,
                 max_tokens=1500,
-                system=system_prompt,
-                messages=[{"role": "user", "content": user_prompt}],
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
             )
-        return response.content[0].text.strip()
+        return response.choices[0].message.content.strip()
 
     def generate_question(
         self, topic: str, difficulty: str, question_number: int,
@@ -685,7 +687,7 @@ def main():
     parser.add_argument("--questions", type=int, choices=range(1, 11), metavar="1-10",
                         default=5, help="Number of questions (default: 5)")
     parser.add_argument("--history", action="store_true", help="View past interview sessions")
-    parser.add_argument("--api-key", help="Anthropic API key (or set ANTHROPIC_API_KEY env var)")
+    parser.add_argument("--api-key", help="OPENAI_API_KEY API key (or set OPENAI_API_KEY env var)")
 
     args = parser.parse_args()
 
@@ -693,10 +695,10 @@ def main():
         list_past_sessions()
         return
 
-    api_key = args.api_key or os.environ.get("ANTHROPIC_API_KEY")
-    if not api_key:
-        console.print("[red]❌ Error: Set ANTHROPIC_API_KEY environment variable or use --api-key[/red]")
-        console.print("[dim]  export ANTHROPIC_API_KEY='your-key-here'[/dim]")
+ api_key = args.api_key or os.environ.get("OPENAI_API_KEY")
+if not api_key:
+    console.print("[red]❌ Error: Set OPENAI_API_KEY environment variable or use --api-key[/red]")
+    console.print("[dim]  export OPENAI_API_KEY='your-key-here'[/dim]")
         sys.exit(1)
 
     try:
