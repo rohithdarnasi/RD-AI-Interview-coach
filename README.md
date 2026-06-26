@@ -233,7 +233,7 @@ The `vercel.json` is included and pre-configured.
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `ANTHROPIC_API_KEY` | ✅ Yes | Get from [console.anthropic.com](https://console.anthropic.com) |
+| `open api key` | ✅ Yes | Get from [console.anthropic.com](https://console.anthropic.com) |
 
 ---
 
