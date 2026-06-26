@@ -21,10 +21,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const { candidate_name, topic, difficulty, total_score, max_score, answers } = req.body
 
-  const apiKey = process.env.ANTHROPIC_API_KEY
-  if (!apiKey) return res.status(500).json({ error: 'API key not configured' })
+const apiKey = process.env.OPENAI_API_KEY
+if (!apiKey) return res.status(500).json({ error: 'API key not configured' })
 
-  const client = new Anthropic({ apiKey })
+const client = new OpenAI({ apiKey })
   const topicLabel = TOPICS[topic] || topic
   const pct = max_score > 0 ? Math.round((total_score / max_score) * 100) : 0
   const weakAreas = (answers || [])
@@ -58,18 +58,22 @@ Under 350 words. Use markdown headers and bullet points.`
   res.setHeader('Connection', 'keep-alive')
 
   try {
-    const stream = await client.messages.stream({
-      model: 'claude-opus-4-6',
-      max_tokens: 700,
-      system,
-      messages: [{ role: 'user', content: user }],
-    })
+  const stream = await client.chat.completions.create({
+    model: 'gpt-4o',
+    max_tokens: 700,
+    stream: true,
+    messages: [
+        { role: 'system', content: system },
+        { role: 'user', content: user },
+    ],
+})
 
-    for await (const chunk of stream) {
-      if (chunk.type === 'content_block_delta' && chunk.delta.type === 'text_delta') {
-        res.write(`data: ${JSON.stringify({ chunk: chunk.delta.text })}\n\n`)
-      }
+for await (const chunk of stream) {
+    const text = chunk.choices[0]?.delta?.content
+    if (text) {
+        res.write(`data: ${JSON.stringify({ chunk: text })}\n\n`)
     }
+}
 
     res.write('data: [DONE]\n\n')
     res.end()
