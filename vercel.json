@@ -4,7 +4,7 @@
   "devCommand": "npm run dev",
   "installCommand": "npm install",
   "env": {
-    "ANTHROPIC_API_KEY": "@anthropic_api_key"
+    "OPENAI_API_KEY": "@OPENAI_API_KEY"
   },
   "headers": [
     {
