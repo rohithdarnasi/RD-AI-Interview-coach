@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import AsyncGenerator, Optional
 
-import anthropic
+from openai import AsyncOpenAI
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
@@ -101,47 +101,43 @@ class EvaluationResponse(BaseModel):
 
 # ─── AI Logic ─────────────────────────────────────────────────────────────────
 
-def get_client() -> anthropic.Anthropic:
-    key = ANTHROPIC_API_KEY
+def get_client() -> AsyncOpenAI:
+    key = OPENAI_API_KEY
     if not key:
-        raise HTTPException(status_code=500, detail="ANTHROPIC_API_KEY not configured")
-    return anthropic.Anthropic(api_key=key)
+        raise HTTPException(status_code=500, detail="OPENAI_API_KEY not configured")
+    return AsyncOpenAI(api_key=key)
 
 
 async def call_claude_async(system: str, user: str, max_tokens: int = 1200) -> str:
-    """Run Claude call in a thread pool to keep FastAPI async."""
+    """Async call to OpenAI."""
     client = get_client()
-
-    def _sync_call():
-        response = client.messages.create(
-            model="claude-opus-4-6",
-            max_tokens=max_tokens,
-            system=system,
-            messages=[{"role": "user", "content": user}],
-        )
-        return response.content[0].text.strip()
-
-    loop = asyncio.get_event_loop()
-    return await loop.run_in_executor(None, _sync_call)
+    response = await client.chat.completions.create(
+        model="gpt-4o",
+        max_tokens=max_tokens,
+        messages=[
+            {"role": "system", "content": system},
+            {"role": "user", "content": user},
+        ],
+    )
+    return response.choices[0].message.content.strip()
 
 
 async def stream_claude(system: str, user: str) -> AsyncGenerator[str, None]:
-    """Stream Claude responses as SSE chunks."""
+    """Stream OpenAI responses as SSE chunks."""
     client = get_client()
-
-    def _stream():
-        with client.messages.stream(
-            model="claude-opus-4-6",
-            max_tokens=800,
-            system=system,
-            messages=[{"role": "user", "content": user}],
-        ) as stream:
-            for text in stream.text_stream:
-                yield text
-
-    for chunk in _stream():
-        yield f"data: {json.dumps({'chunk': chunk})}\n\n"
-        await asyncio.sleep(0)  # yield control
+    stream = await client.chat.completions.create(
+        model="gpt-4o",
+        max_tokens=800,
+        stream=True,
+        messages=[
+            {"role": "system", "content": system},
+            {"role": "user", "content": user},
+        ],
+    )
+    async for chunk in stream:
+        text = chunk.choices[0].delta.content
+        if text:
+            yield f"data: {json.dumps({'chunk': text})}\n\n"
 
     yield "data: [DONE]\n\n"
 
