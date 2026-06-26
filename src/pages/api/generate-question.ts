@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
-import Anthropic from '@anthropic-ai/sdk'
+import OpenAI from 'openai'
 
 const TOPICS: Record<string, string> = {
   docker: 'Docker & Containers',
