@@ -19,10 +19,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const { topic, difficulty, question_text, question_type, user_answer } = req.body
 
-  const apiKey = process.env.ANTHROPIC_API_KEY
-  if (!apiKey) return res.status(500).json({ error: 'API key not configured' })
+const apiKey = process.env.OPENAI_API_KEY
+if (!apiKey) return res.status(500).json({ error: 'API key not configured' })
 
-  const client = new Anthropic({ apiKey })
+const client = new OpenAI({ apiKey })
   const topicLabel = TOPICS[topic] || topic
 
   const system = `You are an expert DevOps/Cloud interviewer evaluating a candidate's answer.
@@ -51,14 +51,15 @@ ${user_answer?.trim() || '[No answer / Skipped]'}
 Evaluate this answer now.`
 
   try {
-    const response = await client.messages.create({
-      model: 'claude-opus-4-6',
-      max_tokens: 800,
-      system,
-      messages: [{ role: 'user', content: user }],
-    })
-
-    const raw = response.content[0].type === 'text' ? response.content[0].text.trim() : ''
+   const response = await client.chat.completions.create({
+    model: 'gpt-4o',
+    max_tokens: 800,
+    messages: [
+        { role: 'system', content: system },
+        { role: 'user', content: user },
+    ],
+})
+const raw = response.choices[0].message.content?.trim() ?? ''
 
     try {
       const data = JSON.parse(raw)
